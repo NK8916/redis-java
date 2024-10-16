@@ -13,8 +13,10 @@ public class Main {
             serverSocket.setReuseAddress(true);
 
             try(Socket client=serverSocket.accept()){
-                BufferedReader in=new BufferedReader(new InputStreamReader(client.getInputStream()));
-                BufferedWriter out=new BufferedWriter(new OutputStreamWriter(client.getOutputStream()));
+                BufferedReader in =
+                        new BufferedReader(new InputStreamReader(client.getInputStream()));
+                BufferedWriter out = new BufferedWriter(
+                        new OutputStreamWriter(client.getOutputStream()));
                 String input;
                 while((input=in.readLine())!=null){
                     if(input.equalsIgnoreCase("PING")){
