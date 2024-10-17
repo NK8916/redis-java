@@ -13,17 +13,10 @@ public class Main {
             serverSocket.setReuseAddress(true);
 
             try(Socket client=serverSocket.accept()){
-                BufferedReader in =
-                        new BufferedReader(new InputStreamReader(client.getInputStream()));
-                BufferedWriter out = new BufferedWriter(
-                        new OutputStreamWriter(client.getOutputStream()));
-                String input;
-                while((input=in.readLine())!=null){
-                    if(input.equalsIgnoreCase("PING")){
-                        out.write("+PONG\r\n");
-                    }
-                }
-                out.flush();
+                OutputStream output=client.getOutputStream();
+                PrintWriter writer=new PrintWriter(output,true);
+                writer.print("+PONG\r\n");
+                writer.flush();
             }catch(IOException e){
                 System.out.println("IOException: " + e.getMessage());
             }
