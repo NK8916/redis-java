@@ -15,11 +15,35 @@ public class Main {
             while(true) {
                 try (Socket client = serverSocket.accept()) {
                     System.out.println("Client connected: " + client.getInetAddress().getHostAddress());
-
+                    BufferedReader reader = new BufferedReader(new InputStreamReader(client.getInputStream(), StandardCharsets.UTF_8));
                     BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(client.getOutputStream(), StandardCharsets.UTF_8));
-                    writer.write("+PONG\r\n");
-                    writer.flush();
-//                    System.out.println("Sent response to client");
+
+                    String line;
+
+                    while((line = reader.readLine())!=null){
+                        System.out.println("Received request: " + line);
+                        if(line.startsWith("*")){
+                            int numArgs = Integer.parseInt(line.substring(1));
+                            for(int i=0;i<numArgs;i++){
+                                line= reader.readLine();
+                                int argLength=Integer.parseInt(line.substring(1));
+                                line= reader.readLine();
+                                String command=line;
+                                if ("PING".equals(command)) {
+                                    writer.write("+PONG\r\n");
+                                    writer.flush();
+                                    System.out.println("Sent response to client: +PONG");
+                                } else {
+                                    writer.write("-ERR unknown command\r\n");
+                                    writer.flush();
+                                    System.out.println("Sent response to client: -ERR unknown command");
+                                }
+                            }
+
+                        }
+
+                    }
+
                 }
             }
         }catch(IOException e){
