@@ -1,6 +1,7 @@
 import java.io.*;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.nio.charset.StandardCharsets;
 
 public class Main {
   public static void main(String[] args){
@@ -11,42 +12,18 @@ public class Main {
         int port = 6379;
         try(ServerSocket serverSocket = new ServerSocket(port)){
             serverSocket.setReuseAddress(true);
+            while(true) {
+                try (Socket client = serverSocket.accept()) {
+                    System.out.println("Client connected: " + client.getInetAddress().getHostAddress());
 
-            try(Socket client=serverSocket.accept()){
-                OutputStream output=client.getOutputStream();
-                PrintWriter writer=new PrintWriter(output,true);
-                writer.print("+PONG\r\n");
-                writer.flush();
-            }catch(IOException e){
-                System.out.println("IOException: " + e.getMessage());
+                    BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(client.getOutputStream(), StandardCharsets.UTF_8));
+                    writer.write("+PONG\r\n");
+                    writer.flush();
+//                    System.out.println("Sent response to client");
+                }
             }
-
         }catch(IOException e){
-          System.out.println("IOException: " + e.getMessage());
+          System.out.println("Outer IOException: " + e.getMessage());
         }
-//        try {
-//          serverSocket = new ServerSocket(port);
-//          // Since the tester restarts your program quite often, setting SO_REUSEADDR
-//          // ensures that we don't run into 'Address already in use' errors
-//          serverSocket.setReuseAddress(true);
-//          // Wait for connection from client.
-//          clientSocket = serverSocket.accept();
-//          InputStream byteData = clientSocket.getInputStream();
-//          byte[] response = "+PONG\r\n".getBytes();
-//          clientSocket.getOutputStream().write(response);
-//          System.out.println(response);
-//        } catch (IOException e) {
-//          System.out.println("IOException: " + e.getMessage());
-//        }
-//        finally {
-//          try {
-//            if (clientSocket != null) {
-//                System.out.println("test");
-//              clientSocket.close();
-//            }
-//          } catch (IOException e) {
-//            System.out.println("IOException: " + e.getMessage());
-//          }
-//        }
   }
 }
