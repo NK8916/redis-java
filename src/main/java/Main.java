@@ -29,7 +29,8 @@ public class Main {
                                 int argLength=Integer.parseInt(line.substring(1));
                                 line= reader.readLine();
                                 String command=line;
-                                if ("PING".equals(command)) {
+                                System.out.println("command: "+command);
+                                if ("ping".equals(command.toLowerCase())) {
                                     writer.write("+PONG\r\n");
                                     writer.flush();
                                     System.out.println("Sent response to client: +PONG");
