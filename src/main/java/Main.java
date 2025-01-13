@@ -47,7 +47,7 @@ public class Main {
                   line= reader.readLine();
                   String command=line;
                   System.out.println("command: "+command);
-                  if ("ping".equals(command.toLowerCase())) {
+                  if ("ping".equalsIgnoreCase(command)) {
                       writer.write("+PONG\r\n");
                       writer.flush();
                       System.out.println("Sent response to client: +PONG");
