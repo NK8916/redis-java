@@ -2,6 +2,8 @@ import java.io.*;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.nio.charset.StandardCharsets;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class Main {
   public static void main(String[] args){
@@ -13,42 +15,51 @@ public class Main {
         try(ServerSocket serverSocket = new ServerSocket(port)){
             serverSocket.setReuseAddress(true);
             while(true) {
-                try (Socket client = serverSocket.accept()) {
-                    System.out.println("Client connected: " + client.getInetAddress().getHostAddress());
-                    BufferedReader reader = new BufferedReader(new InputStreamReader(client.getInputStream(), StandardCharsets.UTF_8));
-                    BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(client.getOutputStream(), StandardCharsets.UTF_8));
-
-                    String line;
-
-                    while((line = reader.readLine())!=null){
-                        System.out.println("Received request: " + line);
-                        if(line.startsWith("*")){
-                            int numArgs = Integer.parseInt(line.substring(1));
-                            for(int i=0;i<numArgs;i++){
-                                line= reader.readLine();
-                                int argLength=Integer.parseInt(line.substring(1));
-                                line= reader.readLine();
-                                String command=line;
-                                System.out.println("command: "+command);
-                                if ("ping".equals(command.toLowerCase())) {
-                                    writer.write("+PONG\r\n");
-                                    writer.flush();
-                                    System.out.println("Sent response to client: +PONG");
-                                } else {
-                                    writer.write("-ERR unknown command\r\n");
-                                    writer.flush();
-                                    System.out.println("Sent response to client: -ERR unknown command");
-                                }
-                            }
-
-                        }
-
+                Socket client = serverSocket.accept();
+                ExecutorService threadPool = Executors.newCachedThreadPool();
+                threadPool.submit(()-> {
+                    try {
+                        handleClient(client);
+                    } catch (IOException e) {
+                        throw new RuntimeException(e);
                     }
-
-                }
+                });
             }
         }catch(IOException e){
           System.out.println("Outer IOException: " + e.getMessage());
         }
+  }
+
+  private static void handleClient(Socket client) throws IOException {
+      System.out.println("Client connected: " + client.getInetAddress().getHostAddress());
+      BufferedReader reader = new BufferedReader(new InputStreamReader(client.getInputStream(), StandardCharsets.UTF_8));
+      BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(client.getOutputStream(), StandardCharsets.UTF_8));
+
+      String line;
+
+      while((line = reader.readLine())!=null){
+          System.out.println("Received request: " + line);
+          if(line.startsWith("*")){
+              int numArgs = Integer.parseInt(line.substring(1));
+              for(int i=0;i<numArgs;i++){
+                  line= reader.readLine();
+                  int argLength=Integer.parseInt(line.substring(1));
+                  line= reader.readLine();
+                  String command=line;
+                  System.out.println("command: "+command);
+                  if ("ping".equals(command.toLowerCase())) {
+                      writer.write("+PONG\r\n");
+                      writer.flush();
+                      System.out.println("Sent response to client: +PONG");
+                  } else {
+                      writer.write("-ERR unknown command\r\n");
+                      writer.flush();
+                      System.out.println("Sent response to client: -ERR unknown command");
+                  }
+              }
+
+          }
+
+      }
   }
 }
