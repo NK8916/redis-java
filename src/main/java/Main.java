@@ -2,6 +2,7 @@ import java.io.*;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -41,25 +42,48 @@ public class Main {
           System.out.println("Received request: " + line);
           if(line.startsWith("*")){
               int numArgs = Integer.parseInt(line.substring(1));
-              for(int i=0;i<numArgs;i++){
+              if(numArgs==1){
                   line= reader.readLine();
-                  int argLength=Integer.parseInt(line.substring(1));
+                  System.out.println(line);
                   line= reader.readLine();
                   String command=line;
-                  System.out.println("command: "+command);
-                  if ("ping".equals(command.toLowerCase())) {
+                  if ("ping".equalsIgnoreCase(command)) {
                       writer.write("+PONG\r\n");
                       writer.flush();
                       System.out.println("Sent response to client: +PONG");
-                  } else {
-                      writer.write("-ERR unknown command\r\n");
-                      writer.flush();
-                      System.out.println("Sent response to client: -ERR unknown command");
                   }
+              }else{
+                  line= reader.readLine();
+                  System.out.println(line);
+                  line= reader.readLine();
+                  String command=line;
+                  System.out.println(command);
+                  if("echo".equalsIgnoreCase(command)){
+                      ArrayList<String> resultList=new ArrayList<>();
+                    for(int i=0;i<numArgs-1;i++){
+                        line= reader.readLine();
+                        System.out.println(line);
+                        resultList.add(reader.readLine());
+                    }
+                    String result="+"+String.join(" ",resultList)+"\r\n";
+                    writer.write(result);
+                    writer.flush();
+                    System.out.println("Sent response to client: "+result);
+                  }
+
               }
-
+//              for(int i=0;i<numArgs;i++){
+//                  line= reader.readLine();
+//                  line= reader.readLine();
+//                  String command=line;
+//                  System.out.println("command: "+command);
+//                  if ("ping".equalsIgnoreCase(command)) {
+//                      writer.write("+PONG\r\n");
+//                      writer.flush();
+//                      System.out.println("Sent response to client: +PONG");
+//                  }
+//              }
           }
-
       }
   }
 }
