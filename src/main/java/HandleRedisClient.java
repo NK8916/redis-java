@@ -53,11 +53,14 @@ public class HandleRedisClient {
             String val= reader.readLine();
             map.put(key,val);
             System.out.println("value: "+map.get(key));
+            this.sendResponseToClient("OK");
+        }else{
+            System.out.println("key: "+key);
+            String response=map.getOrDefault(key, "Key Value Pair does not exists");
+            System.out.println("response: "+response);
+            this.sendResponseToClient(response);
         }
-        System.out.println("key: "+key);
-        String response=map.getOrDefault(key, "Key Value Pair does not exists");
-        System.out.println("response: "+response);
-        this.sendResponseToClient(response);
+
     }
 
     private void echoResponse(int numArgs) throws IOException {
