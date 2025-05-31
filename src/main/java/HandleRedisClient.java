@@ -104,7 +104,7 @@ public class HandleRedisClient {
             this.sendResponseToClient("OK");
         }else{
             System.out.println("key: "+key);
-            String response=map.getOrDefault(key, "$-1");
+            String response=map.getOrDefault(key, null);
             System.out.println("response: "+response);
             this.sendResponseToClient(response);
         }
@@ -123,7 +123,7 @@ public class HandleRedisClient {
     }
 
     private void sendResponseToClient(String text) throws IOException {
-        String result="+"+text+"\r\n";
+        String result=text!=null?"+"+text+"\r\n":"$-1\r\n";
         this.writer.write(result);
         this.writer.flush();
         System.out.println("Sent response to client: "+result);
