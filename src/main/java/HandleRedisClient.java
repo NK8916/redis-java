@@ -104,7 +104,7 @@ public class HandleRedisClient {
             this.sendResponseToClient("OK");
         }else{
             System.out.println("key: "+key);
-            String response=map.getOrDefault(key, "+$-1\r\n");
+            String response=map.getOrDefault(key, "$-1");
             System.out.println("response: "+response);
             this.sendResponseToClient(response);
         }
