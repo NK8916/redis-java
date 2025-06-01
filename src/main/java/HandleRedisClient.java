@@ -7,19 +7,29 @@ import java.util.concurrent.*;
 public class HandleRedisClient {
     private static final ConcurrentHashMap<String, String> map=new ConcurrentHashMap<>();
     private static final ExecutorService executor= Executors.newCachedThreadPool();
-    private final String dir;
-    private final String dbFileName;
+    private String dir;
+    private String dbFileName;
     private final BufferedReader reader;
     private final BufferedWriter writer;
+    private final String[] args;
     private int numArgs;
 
-    HandleRedisClient(Socket client) throws IOException {
+    HandleRedisClient(String[] args,Socket client) throws IOException {
         System.out.println("Client connected: " + client.getInetAddress().getHostAddress());
         this.reader = new BufferedReader(new InputStreamReader(client.getInputStream(), StandardCharsets.UTF_8));
         this.writer = new BufferedWriter(new OutputStreamWriter(client.getOutputStream(), StandardCharsets.UTF_8));
         this.numArgs=0;
-        this.dir="/tmp/redis-files";
-        this.dbFileName="dump.rdb";
+        this.args=args;
+        System.out.println("args:=>>");
+        for(int i=0;i<args.length;i++){
+            if("--dir".equalsIgnoreCase(args[i]) && i<args.length-1){
+                this.dir=args[++i];
+            }else if("--dbfilename".equalsIgnoreCase(args[i]) && i<args.length-1){
+                this.dbFileName=args[++i];
+            }else{
+                throw new IllegalArgumentException("Invalid Arguments");
+            }
+        }
     }
 
     public void handleClient() throws IOException {
@@ -61,10 +71,16 @@ public class HandleRedisClient {
             System.out.println(line);
             line=this.reader.readLine();
             if("dir".equalsIgnoreCase(line)){
-                String[] stringArray=new String[] {"dir",dir};
+                if(this.dir==null){
+                    this.sendTextRespTextToClient(null);
+                }
+                String[] stringArray=new String[] {"dir",this.dir};
                 this.sendResponseToClient(createRESPArray(stringArray));
             }else if("dbfilename".equalsIgnoreCase(line)){
-                String[] stringArray=new String[] {"dbfilename",dbFileName};
+                if(this.dbFileName==null){
+                    this.sendTextRespTextToClient(null);
+                }
+                String[] stringArray=new String[] {"dbfilename",this.dbFileName};
                 this.sendResponseToClient(createRESPArray(stringArray));
             }else{
                 this.sendTextRespTextToClient("Invalid Arg(s)");
@@ -74,6 +90,7 @@ public class HandleRedisClient {
     }
 
     private String createRESPArray(String[] elements){
+
         int n= elements.length;
         StringBuilder result= new StringBuilder("*" + n + "\r\n");
         for(String item:elements){

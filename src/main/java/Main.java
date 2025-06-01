@@ -21,7 +21,7 @@ public class Main {
                 ExecutorService threadPool = Executors.newCachedThreadPool();
                 threadPool.submit(()-> {
                     try {
-                        HandleRedisClient handleRedisClient=new HandleRedisClient(client);
+                        HandleRedisClient handleRedisClient=new HandleRedisClient(args,client);
                         handleRedisClient.handleClient();
                     } catch (IOException e) {
                         throw new RuntimeException(e);
