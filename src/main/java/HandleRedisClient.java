@@ -33,7 +33,7 @@ public class HandleRedisClient {
                 String command=line;
                 if(this.numArgs==1){
                     if ("ping".equalsIgnoreCase(command)) {
-                        this.sendResponseToClient("PONG");
+                        this.sendTextRespTextToClient("PONG");
                     }
                 }
                 else if(((this.numArgs==3 || this.numArgs==5) && "set".equalsIgnoreCase(command)) || (this.numArgs==2 && "get".equalsIgnoreCase(command))){
@@ -61,14 +61,25 @@ public class HandleRedisClient {
             System.out.println(line);
             line=this.reader.readLine();
             if("dir".equalsIgnoreCase(line)){
-                this.sendResponseToClient(dir);
+                String[] stringArray=new String[] {"dir",dir};
+                this.sendResponseToClient(createRESPArray(stringArray));
             }else if("dbfilename".equalsIgnoreCase(line)){
-                this.sendResponseToClient(dbFileName);
+                String[] stringArray=new String[] {"dbfilename",dbFileName};
+                this.sendResponseToClient(createRESPArray(stringArray));
             }else{
-                this.sendResponseToClient("Invalid Arg(s)");
+                this.sendTextRespTextToClient("Invalid Arg(s)");
             }
 
         }
+    }
+
+    private String createRESPArray(String[] elements){
+        int n= elements.length;
+        StringBuilder result= new StringBuilder("*" + n + "\r\n");
+        for(String item:elements){
+            result.append("$").append(item.length()).append("\r\n").append(item).append("\r\n");
+        }
+        return result.toString();
     }
 
     private void addKeyWithExpiry(String key,int milliseconds) throws InterruptedException {
@@ -115,20 +126,20 @@ public class HandleRedisClient {
                         });
                         System.out.println("Main continues immediately...");
                     }catch (Exception e){
-                        this.sendResponseToClient("Invalid args: "+e);
+                        this.sendTextRespTextToClient("Invalid args: "+e);
                     }
                 }else{
-                    this.sendResponseToClient("Invalid Argument(s)");
+                    this.sendTextRespTextToClient("Invalid Argument(s)");
                 }
             }
             map.put(key,val);
             System.out.println("value: "+map.get(key));
-            this.sendResponseToClient("OK");
+            this.sendTextRespTextToClient("OK");
         }else{
             System.out.println("key: "+key);
             String response=map.getOrDefault(key, null);
             System.out.println("response: "+response);
-            this.sendResponseToClient(response);
+            this.sendTextRespTextToClient(response);
         }
 
     }
@@ -141,11 +152,15 @@ public class HandleRedisClient {
             System.out.println(line);
             resultList.add(reader.readLine());
         }
-        this.sendResponseToClient(String.join(" ",resultList));
+        this.sendTextRespTextToClient(String.join(" ",resultList));
     }
 
-    private void sendResponseToClient(String text) throws IOException {
+    private void sendTextRespTextToClient(String text) throws IOException {
         String result=text!=null?"+"+text+"\r\n":"$-1\r\n";
+        this.sendResponseToClient(result);
+    }
+
+    private void sendResponseToClient(String result) throws IOException {
         this.writer.write(result);
         this.writer.flush();
         System.out.println("Sent response to client: "+result);
