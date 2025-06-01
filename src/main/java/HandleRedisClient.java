@@ -6,8 +6,9 @@ import java.util.concurrent.*;
 
 public class HandleRedisClient {
     private static final ConcurrentHashMap<String, String> map=new ConcurrentHashMap<>();
-    private static final ConcurrentHashMap<String, Integer> deleteMap=new ConcurrentHashMap<String, Integer>();
     private static final ExecutorService executor= Executors.newCachedThreadPool();
+    private final String dir;
+    private final String dbFileName;
     private final BufferedReader reader;
     private final BufferedWriter writer;
     private int numArgs;
@@ -17,6 +18,8 @@ public class HandleRedisClient {
         this.reader = new BufferedReader(new InputStreamReader(client.getInputStream(), StandardCharsets.UTF_8));
         this.writer = new BufferedWriter(new OutputStreamWriter(client.getOutputStream(), StandardCharsets.UTF_8));
         this.numArgs=0;
+        this.dir="/tmp/redis-files";
+        this.dbFileName="dump.rdb";
     }
 
     public void handleClient() throws IOException {
@@ -36,6 +39,9 @@ public class HandleRedisClient {
                 else if(((this.numArgs==3 || this.numArgs==5) && "set".equalsIgnoreCase(command)) || (this.numArgs==2 && "get".equalsIgnoreCase(command))){
                     this.setOrGetKeyValPair(((this.numArgs==3 || this.numArgs==5) && "set".equalsIgnoreCase(command)));
                 }
+                else if(this.numArgs==3 && "config".equalsIgnoreCase(command)){
+                    this.processConfig();
+                }
                 else{
                     System.out.println(command);
                     if("echo".equalsIgnoreCase(command)){
@@ -43,6 +49,25 @@ public class HandleRedisClient {
                     }
                 }
             }
+        }
+    }
+
+    private void processConfig() throws IOException {
+        String line= this.reader.readLine();
+        System.out.println(line);
+        line= this.reader.readLine();
+        if("get".equalsIgnoreCase(line)){
+            line=this.reader.readLine();
+            System.out.println(line);
+            line=this.reader.readLine();
+            if("dir".equalsIgnoreCase(line)){
+                this.sendResponseToClient(dir);
+            }else if("dbfilename".equalsIgnoreCase(line)){
+                this.sendResponseToClient(dbFileName);
+            }else{
+                this.sendResponseToClient("Invalid Arg(s)");
+            }
+
         }
     }
 
@@ -58,9 +83,6 @@ public class HandleRedisClient {
             map.remove(key);
         });
         System.out.println("Async task submitted...");
-
-//        executor.shutdown();
-//        executor.awaitTermination(10, TimeUnit.SECONDS);
     }
 
     private void setOrGetKeyValPair(boolean setValue) throws IOException {
