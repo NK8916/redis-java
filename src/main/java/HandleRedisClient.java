@@ -1,26 +1,49 @@
 import java.io.*;
 import java.net.Socket;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Map;
 import java.util.concurrent.*;
 
 public class HandleRedisClient {
-    private static final ConcurrentHashMap<String, String> map=new ConcurrentHashMap<>();
+    private static final ConcurrentHashMap<String, String> map = new ConcurrentHashMap<>();
+    private static final ConcurrentHashMap<String, Long> expiryTimes = new ConcurrentHashMap<>();
+    private static final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
     private static final ExecutorService executor= Executors.newCachedThreadPool();
     private String dir;
     private String dbFileName;
     private final BufferedReader reader;
     private final BufferedWriter writer;
-    private final String[] args;
     private int numArgs;
+
+    // Section Flags
+    private static final byte METADATA = (byte)0xfa;
+    private static final byte DATABASE = (byte)0xfe;
+    private static final byte HASH_TABLE_SIZE = (byte)0xfb;
+    private static final byte EXPIRE_MILLIS = (byte)0xfc;
+    private static final byte EXPIRE_SECONDS = (byte)0xfd;
+
+    // Data Type Flags
+    private static final byte STRING = 0x00;
+    private static final byte LIST = 0x01;
+    private static final byte SET = 0x02;
+    private static final byte SORTED_SET = 0x03;
+    private static final byte HASH = 0x04;
+    private static final byte ZIPMAP = 0x09;
+    private static final byte ZIPLIST = 0x0a;
+    private static final byte INTSET = 0x0b;
+    private static final byte SORTED_SET_ZIPLIST = 0x0c;
+    private static final byte HASHMAP_ZIPLIST = 0x0d;
+    private static final byte LIST_QUICKLIST = 0x0e;
 
     HandleRedisClient(String[] args,Socket client) throws IOException {
         System.out.println("Client connected: " + client.getInetAddress().getHostAddress());
         this.reader = new BufferedReader(new InputStreamReader(client.getInputStream(), StandardCharsets.UTF_8));
         this.writer = new BufferedWriter(new OutputStreamWriter(client.getOutputStream(), StandardCharsets.UTF_8));
         this.numArgs=0;
-        this.args=args;
-        System.out.println("args:=>>");
         for(int i=0;i<args.length;i++){
             if("--dir".equalsIgnoreCase(args[i]) && i<args.length-1){
                 this.dir=args[++i];
@@ -30,6 +53,8 @@ public class HandleRedisClient {
                 throw new IllegalArgumentException("Invalid Arguments");
             }
         }
+
+        loadRdbFile();
     }
 
     public void handleClient() throws IOException {
@@ -49,6 +74,9 @@ public class HandleRedisClient {
                 else if(((this.numArgs==3 || this.numArgs==5) && "set".equalsIgnoreCase(command)) || (this.numArgs==2 && "get".equalsIgnoreCase(command))){
                     this.setOrGetKeyValPair(((this.numArgs==3 || this.numArgs==5) && "set".equalsIgnoreCase(command)));
                 }
+                else if(this.numArgs==2 && "keys".equalsIgnoreCase(command)){
+                    this.processKeys();
+                }
                 else if(this.numArgs==3 && "config".equalsIgnoreCase(command)){
                     this.processConfig();
                 }
@@ -58,6 +86,153 @@ public class HandleRedisClient {
                         this.echoResponse();
                     }
                 }
+            }
+        }
+    }
+
+    private void processKeys() throws IOException {
+        String line= this.reader.readLine();
+        System.out.println(line);
+        line= this.reader.readLine();
+        System.out.println("after line: "+line);
+        if(line.contains("*")){
+            ArrayList<String> stringList=new ArrayList<>();
+            if(line.equalsIgnoreCase("*")){
+                for (Map.Entry<String, String> entry : map.entrySet()) {
+                    String key=entry.getKey();
+                    stringList.add(key);
+                }
+            }else{
+                int idx=line.indexOf("*");
+                String partialString=line.substring(0,idx);
+                System.out.println("idx: "+idx);
+                System.out.println("partialString: "+partialString);
+                for (Map.Entry<String, String> entry : map.entrySet()) {
+                    String key=entry.getKey();
+                    System.out.println("key: "+key);
+                    if(idx>=key.length()){
+                        continue;
+                    }
+                    String substring=key.substring(0,idx);
+                    if(substring.equalsIgnoreCase(partialString)){
+                        stringList.add(key);
+                    }
+                }
+            }
+
+            this.sendResponseToClient(createRESPArray(stringList.toArray(new String[0])));
+        }
+    }
+
+    private void loadRdbFile(){
+        System.out.println("loading RDB");
+        File rdbFile= Paths.get(this.dir + "/" + this.dbFileName).toFile();
+        if(!rdbFile.exists()){
+            System.out.println("RDB file doesn't exist, initializing empty store");
+            return;
+        }
+
+        try(FileInputStream fis=new FileInputStream(rdbFile)){
+            byte[] header = fis.readNBytes(9);
+            System.out.println(new String(header));
+
+            byte subsectionHeader;
+
+            while ((subsectionHeader = fis.readNBytes(1)[0]) == METADATA){
+                System.out.println("Check if following is metadata header 0xfa");
+                String hex = String.format("%02x", subsectionHeader);
+                System.out.println(hex);
+                int metadataKeyLength = decodeLength(fis);
+                System.out.println("metadata key length: " + metadataKeyLength);
+                fis.skip(metadataKeyLength);
+                int metadataValueLength = decodeLength(fis);
+                System.out.println("metadata value length: " + metadataValueLength);
+                fis.skip(metadataValueLength);
+            }
+
+            assert subsectionHeader==DATABASE;
+
+            System.out.println("Check if following is database header 0xfe");
+            String hex = String.format("%02x", subsectionHeader);
+            System.out.println(hex);
+
+            fis.skip(1);
+
+            subsectionHeader = fis.readNBytes(1)[0];
+            assert subsectionHeader == HASH_TABLE_SIZE;
+
+            System.out.println("Check if following is hash table size header 0xfb");
+            hex = String.format("%02x", subsectionHeader);
+            System.out.println(hex);
+
+            int numberOfKeys = fis.readNBytes(1)[0];
+            int numberOfExpiries = fis.readNBytes(1)[0];
+
+            System.out.println("number of keys: " + numberOfKeys);
+            System.out.println("number of expiries: " + numberOfExpiries);
+
+            byte flag = fis.readNBytes(1)[0];
+
+            int i = 0;
+
+            while(i<numberOfExpiries+numberOfKeys){
+                i++;
+
+                switch (flag){
+                    case EXPIRE_MILLIS:{ fis.skip(8);}
+                    case EXPIRE_SECONDS:{ fis.skip(4);}
+                    case STRING:{
+                        int keyLength = fis.read();
+                        String key = new String(fis.readNBytes(keyLength), 0, keyLength);
+
+                        int valueLength = fis.read();
+                        String value = new String(fis.readNBytes(valueLength), 0, valueLength);
+                        map.put(key,value);
+                        System.out.println("Key: "+key+" Value: "+value);
+                    }
+                    default:{}
+                }
+            }
+        }
+        catch (IOException ioe) {
+            throw new RuntimeException();
+        }
+    }
+
+    private int decodeLength(FileInputStream fis) throws IOException{
+        int firstByte = fis.read();
+        int firstBitMask = 1 << 7;
+        int secondBitMask = 1 << 6;
+        boolean firstBitIsSet = (firstByte & firstBitMask) != 0;
+        boolean secondBitIsSet = (firstByte & secondBitMask) != 0;
+
+        if(firstBitIsSet){
+            if(secondBitIsSet){
+                int formatMask = 0b00111111;
+                int format = firstByte & formatMask;
+
+                if (format > 2) {
+                    throw new UnsupportedOperationException();
+                }
+
+                System.out.println("format: " + format);
+                System.out.println("read this many bytes: " + (int) Math.pow(2, format));
+                return (int) Math.pow(2, format);
+            }else{
+                byte[] length = fis.readNBytes(4);
+                return ByteBuffer.wrap(length).order(ByteOrder.LITTLE_ENDIAN).getInt();
+            }
+        }else{
+            if (secondBitIsSet) {
+                // 01: Read one additional byte. The combined 14 bits represent the length.
+                int modifiedFirstByteMask = 0b00111111;
+                byte modifiedFirstByte = (byte) (modifiedFirstByteMask & firstByte);
+                byte secondByte = (byte) fis.read();
+                return ByteBuffer.wrap(new byte[] {modifiedFirstByte, secondByte}).order(ByteOrder.LITTLE_ENDIAN).getInt();
+
+            } else {
+                // 00 : The next 6 bits represent the length.
+                return firstByte;
             }
         }
     }
