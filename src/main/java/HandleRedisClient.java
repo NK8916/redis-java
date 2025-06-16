@@ -269,7 +269,7 @@ public class HandleRedisClient {
 
         int n= elements.length;
         StringBuilder result= new StringBuilder("*" + n + "\r\n");
-        elements= Arrays.stream(elements).filter(data->!data.isEmpty()).toArray(String[]::new);;
+        elements= Arrays.stream(elements).filter(data->!(data.isEmpty() || data.isBlank())).toArray(String[]::new);;
         for(String item:elements){
             result.append("$").append(item.length()).append("\r\n").append(item).append("\r\n");
         }
