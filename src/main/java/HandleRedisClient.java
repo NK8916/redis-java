@@ -5,6 +5,7 @@ import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Map;
 import java.util.concurrent.*;
 
@@ -268,10 +269,8 @@ public class HandleRedisClient {
 
         int n= elements.length;
         StringBuilder result= new StringBuilder("*" + n + "\r\n");
+        elements= Arrays.stream(elements).filter(data->!data.isEmpty()).toArray(String[]::new);;
         for(String item:elements){
-            if(item.isEmpty()){
-                continue;
-            }
             result.append("$").append(item.length()).append("\r\n").append(item).append("\r\n");
         }
         return result.toString();
