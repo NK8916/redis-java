@@ -187,6 +187,9 @@ public class HandleRedisClient {
 
                         int valueLength = fis.read();
                         String value = new String(fis.readNBytes(valueLength), 0, valueLength);
+                        if(!key.isEmpty() || !key.isBlank()){
+                            continue;
+                        }
                         map.put(key,value);
                         System.out.println("Key: "+key+" Value: "+value);
 
@@ -270,7 +273,6 @@ public class HandleRedisClient {
         int n= elements.length;
         StringBuilder result= new StringBuilder("*" + n + "\r\n");
         for(String item:elements){
-            System.out.println("in loop: "+"item: "+item);
             result.append("$").append(item.length()).append("\r\n").append(item).append("\r\n");
         }
         return result.toString();
