@@ -270,6 +270,7 @@ public class HandleRedisClient {
         int n= elements.length;
         StringBuilder result= new StringBuilder("*" + n + "\r\n");
         for(String item:elements){
+            System.out.println("in loop: "+"item: "+item);
             result.append("$").append(item.length()).append("\r\n").append(item).append("\r\n");
         }
         return result.toString();
