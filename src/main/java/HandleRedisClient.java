@@ -187,10 +187,7 @@ public class HandleRedisClient {
 
                         int valueLength = fis.read();
                         String value = new String(fis.readNBytes(valueLength), 0, valueLength);
-                        if(!key.isEmpty() && !value.isEmpty()){
-                            map.put(key,value);
-
-                        }
+                        map.put(key,value);
                         System.out.println("Key: "+key+" Value: "+value);
 
                     }
